@@ -4,16 +4,20 @@ import io.vertx.config.ConfigRetriever;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Vertx;
+import io.vertx.core.http.Cookie;
+import io.vertx.core.http.HttpServer;
+import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.impl.logging.Logger;
 import io.vertx.core.impl.logging.LoggerFactory;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
+import io.vertx.ext.web.handler.SessionHandler;
+import io.vertx.ext.web.sstore.LocalSessionStore;
 import org.arushi.practicevertx.resources.ProductResources;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+import java.time.Duration;
 import java.util.Scanner;
 
 public class APIVerticle extends AbstractVerticle {
@@ -46,6 +50,7 @@ public class APIVerticle extends AbstractVerticle {
 
         Router router = Router.router(vertx);
 
+        // Create instance of ProductResources
         ProductResources productResources = new ProductResources();
 
         // Map subrouter for Products
@@ -56,6 +61,20 @@ public class APIVerticle extends AbstractVerticle {
                         .handler(routingContext -> {
                             ClassLoader classLoader = getClass().getClassLoader();
                             File file = new File(classLoader.getResource("webroot/home.html").getFile());
+
+                            // Get "name" cookie
+                            Cookie nameCookie =  routingContext.request().getCookie("name");
+                            String name = "Unknown";
+                            if(nameCookie!=null) {
+                                // Get value from "name" cookie
+                                name = nameCookie.getValue();
+                            } else {
+                                // Set value for "name" cookie
+                                nameCookie = Cookie.cookie("name","Arushi");
+                                nameCookie.setPath("/");
+                                nameCookie.setMaxAge(60); // 1 minute in seconds
+                                routingContext.response().addCookie(nameCookie);
+                            }
 
                             String mappedHtml = "";
                             try{
@@ -70,7 +89,7 @@ public class APIVerticle extends AbstractVerticle {
                                 scanner.close();
 
                                 mappedHtml = builder.toString();
-                                mappedHtml = replaceAllTokens(mappedHtml, "{name}", "Arushi");
+                                mappedHtml = replaceAllTokens(mappedHtml, "{name}", name);
                             } catch (IOException e) {
                                 e.printStackTrace();
                             }
