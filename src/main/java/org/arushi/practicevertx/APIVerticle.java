@@ -4,15 +4,11 @@ import io.vertx.config.ConfigRetriever;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Vertx;
-import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.impl.logging.Logger;
 import io.vertx.core.impl.logging.LoggerFactory;
-import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
-import io.vertx.ext.web.RoutingContext;
-import io.vertx.ext.web.handler.BodyHandler;
-import org.arushi.practicevertx.entity.Product;
+import org.arushi.practicevertx.resources.ProductResources;
 
 import java.io.File;
 import java.io.IOException;
@@ -50,15 +46,10 @@ public class APIVerticle extends AbstractVerticle {
 
         Router router = Router.router(vertx);
 
-        // API routing
-        router.route("/api*").handler(this::defaultProcessorForAllAPI);
-        router.route("/api/v1/products*").handler(BodyHandler.create());
-        router.get("/api/v1/products").handler(this::getAllProducts);
-        router.get("/api/v1/products/:id").handler(this::getProductById);
-        router.post("/api/v1/products").handler(this::addProduct);
-        router.put("/api/v1/products/:id").handler(this::updateProductById);
-        router.delete("/api/v1/products/:id").handler(this::deleteProductById);
+        ProductResources productResources = new ProductResources();
 
+        // Map subrouter for Products
+        router.route("/api/*").subRouter(productResources.getAPISubRouter(vertx));
 
         // Default if no routes matched
         router.route()
@@ -101,29 +92,6 @@ public class APIVerticle extends AbstractVerticle {
                             });
     }
 
-    // Called for all default API HTTP GET, POST, PUT and DELETE
-    private void defaultProcessorForAllAPI(RoutingContext routingContext) {
-        String authToken = routingContext.request().headers().get("AuthToken");
-
-        if(authToken == null || !authToken.equals("123")) {
-            LOGGER.info("Failed basic auth check");
-
-            routingContext.response()
-                    .setStatusCode(401)
-                    .putHeader(HttpHeaders.CONTENT_TYPE,"application/json")
-                    .end(Json.encodePrettily(new JsonObject().put("error", "Not Authorized to use these APIs")));
-
-        } else {
-            LOGGER.info("Passed basic auth check");
-
-            // Allowing CORS - Cross Domain API calls
-            routingContext.response().putHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
-            routingContext.response().putHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, "GET,POST,PUT,DELETE");
-
-            // Call the next matching route
-            routingContext.next();
-        }
-    }
 
     private String replaceAllTokens(String mappedHtml, String token, String replaceWith) {
 
@@ -133,81 +101,6 @@ public class APIVerticle extends AbstractVerticle {
         return  mappedHtml;
     }
 
-    // Get All Products as array of products
-    private void getAllProducts(RoutingContext routingContext) {
-        JsonObject responseJson = new JsonObject();
-
-        Product firstItem = new Product("2322333", "123", "Item 1");
-        Product secondItem = new Product("34241123", "432", "Item 2");
-        List<Product> products = new ArrayList<>();
-        products.add(firstItem);
-        products.add(secondItem);
-
-        responseJson.put("products", products);
-
-        routingContext.response()
-                .setStatusCode(200)
-                .putHeader("content-type","application/json")
-                .end(Json.encodePrettily(responseJson));
-    }
-
-    // Get one product that matches input id and return as a single Json object
-    private void getProductById(RoutingContext routingContext) {
-        final String productId = routingContext.request().getParam("id");
-        String number = "234";
-        Product firstItem = new Product(productId, number, "Item " + number);
-
-        routingContext.response()
-                .setStatusCode(200)
-                .putHeader("content-type","application/json")
-                .end(Json.encodePrettily(firstItem));
-    }
-
-    // Insert a product item passed in from the http post body
-    // Return what was added with the unique id from the insert
-    private void addProduct(RoutingContext routingContext) {
-        JsonObject jsonBody = routingContext.body().asJsonObject();
-        String number = jsonBody.getString("number");
-        String description = jsonBody.getString("description");
-
-        Product newItem = new Product("", number, description);
-
-        // Add into database & get unique id
-        newItem.setId("234978");
-
-        routingContext.response()
-                .setStatusCode(201)
-                .putHeader("content-type","application/json")
-                .end(Json.encodePrettily(newItem));
-    }
-
-    // Update the item based on the url product id
-    // Return updated product info
-    private void updateProductById(RoutingContext routingContext) {
-        final String productId = routingContext.request().getParam("id");
-
-        JsonObject jsonBody = routingContext.body().asJsonObject();
-        String number = jsonBody.getString("number");
-        String description = jsonBody.getString("description");
-
-        Product updatedItem = new Product(productId, number, description);
-
-        routingContext.response()
-                .setStatusCode(200)
-                .putHeader("content-type","application/json")
-                .end(Json.encodePrettily(updatedItem));
-
-    }
-
-    // Delete item and return 200 on success or 400 on failure
-    private void deleteProductById(RoutingContext routingContext) {
-        final String productId = routingContext.request().getParam("id");
-
-        routingContext.response()
-                .setStatusCode(200)
-                .putHeader("content-type","application/json")
-                .end();
-    }
     @Override
     public void stop() throws Exception {
         LOGGER.info("APIVerticle stopped");
