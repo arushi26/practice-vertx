@@ -4,6 +4,7 @@ import io.vertx.config.ConfigRetriever;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Vertx;
+import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.impl.logging.Logger;
 import io.vertx.core.impl.logging.LoggerFactory;
 import io.vertx.core.json.Json;
@@ -11,7 +12,6 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
-import io.vertx.ext.web.handler.StaticHandler;
 import org.arushi.practicevertx.entity.Product;
 
 import java.io.File;
@@ -51,6 +51,7 @@ public class APIVerticle extends AbstractVerticle {
         Router router = Router.router(vertx);
 
         // API routing
+        router.route("/api*").handler(this::defaultProcessorForAllAPI);
         router.route("/api/v1/products*").handler(BodyHandler.create());
         router.get("/api/v1/products").handler(this::getAllProducts);
         router.get("/api/v1/products/:id").handler(this::getProductById);
@@ -98,6 +99,30 @@ public class APIVerticle extends AbstractVerticle {
                                         LOGGER.error("Could not start an HTTP server ", httpServerAsyncResult.cause());
                                     }
                             });
+    }
+
+    // Called for all default API HTTP GET, POST, PUT and DELETE
+    private void defaultProcessorForAllAPI(RoutingContext routingContext) {
+        String authToken = routingContext.request().headers().get("AuthToken");
+
+        if(authToken == null || !authToken.equals("123")) {
+            LOGGER.info("Failed basic auth check");
+
+            routingContext.response()
+                    .setStatusCode(401)
+                    .putHeader(HttpHeaders.CONTENT_TYPE,"application/json")
+                    .end(Json.encodePrettily(new JsonObject().put("error", "Not Authorized to use these APIs")));
+
+        } else {
+            LOGGER.info("Passed basic auth check");
+
+            // Allowing CORS - Cross Domain API calls
+            routingContext.response().putHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+            routingContext.response().putHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, "GET,POST,PUT,DELETE");
+
+            // Call the next matching route
+            routingContext.next();
+        }
     }
 
     private String replaceAllTokens(String mappedHtml, String token, String replaceWith) {
