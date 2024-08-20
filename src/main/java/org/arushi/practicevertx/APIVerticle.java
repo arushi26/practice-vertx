@@ -89,7 +89,15 @@ public class APIVerticle extends AbstractVerticle {
 
         vertx.createHttpServer()
                 .requestHandler(router)
-                .listen(config().getInteger("http.port"));
+                .listen(config().getInteger("http.port"),
+                            httpServerAsyncResult -> {
+                                    // Log whether server able to start at given port
+                                    if(httpServerAsyncResult.succeeded()) {
+                                        LOGGER.info("HTTP server running on port " + config().getInteger("http.port"));
+                                    } else {
+                                        LOGGER.error("Could not start an HTTP server ", httpServerAsyncResult.cause());
+                                    }
+                            });
     }
 
     private String replaceAllTokens(String mappedHtml, String token, String replaceWith) {
