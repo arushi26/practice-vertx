@@ -1,3 +1,9 @@
 {
-  "http.port": 8081
+  "http.port": 8081,
+  "db.http.port": 8080,
+  "db.connection_string":"mongodb://url",
+  "db.username":"user",
+  "db.password":"",
+  "db.authSource":"",
+  "db.useObjectId":true
 }

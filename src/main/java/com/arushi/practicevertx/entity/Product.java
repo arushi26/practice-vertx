@@ -1,4 +1,4 @@
-package org.arushi.practicevertx.entity;
+package com.arushi.practicevertx.entity;
 
 public class Product {
 

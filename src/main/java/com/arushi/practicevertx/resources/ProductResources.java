@@ -1,5 +1,6 @@
-package org.arushi.practicevertx.resources;
+package com.arushi.practicevertx.resources;
 
+import com.arushi.practicevertx.entity.Product;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.impl.logging.Logger;
@@ -9,7 +10,6 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
-import org.arushi.practicevertx.entity.Product;
 
 import java.util.ArrayList;
 import java.util.List;

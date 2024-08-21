@@ -47,6 +47,15 @@
             <version>${jackson.version}</version>
         </dependency>
 
+        <!-- Mongo DB -->
+        <!-- https://mvnrepository.com/artifact/io.vertx/vertx-mongo-client -->
+        <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-mongo-client</artifactId>
+            <version>${vertx.version}</version>
+        </dependency>
+
+
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
