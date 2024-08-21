@@ -1,23 +1,18 @@
-package org.arushi.practicevertx;
+package com.arushi.practicevertx;
 
+import com.arushi.practicevertx.resources.ProductResources;
 import io.vertx.config.ConfigRetriever;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.Cookie;
-import io.vertx.core.http.HttpServer;
-import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.impl.logging.Logger;
 import io.vertx.core.impl.logging.LoggerFactory;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
-import io.vertx.ext.web.handler.SessionHandler;
-import io.vertx.ext.web.sstore.LocalSessionStore;
-import org.arushi.practicevertx.resources.ProductResources;
 
 import java.io.File;
 import java.io.IOException;
-import java.time.Duration;
 import java.util.Scanner;
 
 public class APIVerticle extends AbstractVerticle {
