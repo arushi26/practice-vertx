@@ -1,9 +1,7 @@
 package com.arushi.practicevertx;
 
 import io.vertx.config.ConfigRetriever;
-import io.vertx.core.AbstractVerticle;
-import io.vertx.core.DeploymentOptions;
-import io.vertx.core.Vertx;
+import io.vertx.core.*;
 import io.vertx.core.impl.logging.Logger;
 import io.vertx.core.impl.logging.LoggerFactory;
 import io.vertx.core.json.Json;
@@ -22,6 +20,10 @@ public class MongoVerticle extends AbstractVerticle {
 
     public static void main(String[] args) {
 
+        /* Code to deploy cluster -->
+        /* deployClusteredVerticle();
+        */
+
         Vertx vertx = Vertx.vertx();
 
         // Use config/config.json from resources/classpath to get DB connection details
@@ -30,7 +32,7 @@ public class MongoVerticle extends AbstractVerticle {
         configRetriever.getConfig( config -> {
                     if(config.succeeded()) {
                         JsonObject configJson = config.result();
-//                      System.out.println(configJson.encodePrettily());
+                        //                      System.out.println(configJson.encodePrettily());
 
                         DeploymentOptions options = new DeploymentOptions().setConfig(configJson);
                         vertx.deployVerticle(new MongoVerticle(), options);
@@ -39,8 +41,37 @@ public class MongoVerticle extends AbstractVerticle {
 
         );
 
+    }
+
+    private static void deployClusteredVerticle() {
+        // Cluster
+        VertxOptions vertxOptions = new VertxOptions();
+
+        Vertx.clusteredVertx(vertxOptions, results -> {
+            if(results.succeeded()) {
+
+                Vertx vertx = results.result();
+
+                // Use config/config.json from resources/classpath to get DB connection details
+                ConfigRetriever configRetriever = ConfigRetriever.create(vertx);
+
+                configRetriever.getConfig( config -> {
+                            if(config.succeeded()) {
+                                JsonObject configJson = config.result();
+                                //                      System.out.println(configJson.encodePrettily());
+
+                                DeploymentOptions options = new DeploymentOptions().setConfig(configJson);
+                                vertx.deployVerticle(new MongoVerticle(), options);
+                            }
+                        }
+
+                );
+
+            }
+        });
 
     }
+
 
     @Override
     public void start() throws Exception {
@@ -67,6 +98,50 @@ public class MongoVerticle extends AbstractVerticle {
                 .requestHandler(router)
                 .listen(config().getInteger("db.http.port"));
 
+        // To communicate via Event Bus
+        // Consumer listens to messages sent across to specified service
+        vertx.eventBus().consumer("com.arushi.myservice", message -> {
+            System.out.println("Received message : " + message.body());
+
+            // reply to message received
+            // reply() for Vert.x 3.x releases
+            // replyAndRequest() for Vert.x 4.x releases
+            message.replyAndRequest(
+                    new JsonObject()
+                        .put("responseCode","OK")
+                        .put("message","This is the response to your event")
+            );
+        });
+
+        // Code to test sending message to service
+        vertx.setTimer(5000, handler -> {
+            sendTestEvent();
+        });
+    }
+
+    private void sendTestEvent() {
+        // sending message to consumers of specified service - com.arushi.myservice
+
+        JsonObject testInfo = new JsonObject();
+        testInfo.put("info", "Hi");
+        System.out.println("Sending message : " + testInfo);
+
+        // eventBus().send() for Vert.x 3.x releases
+        // eventBus().request() for Vert.x 4.x releases
+        vertx.eventBus().request("com.arushi.myservice",
+                                    testInfo.toString(),
+                                    asyncResult -> {
+                                            if(asyncResult.succeeded()) {
+                                                JsonObject reply = (JsonObject) asyncResult.result().body();
+                                                System.out.println("Reply message received - " + reply.toString());
+                                            }
+
+
+                                    }
+
+                 )
+
+        ;
     }
 
     private void getAllProducts(RoutingContext routingContext) {
