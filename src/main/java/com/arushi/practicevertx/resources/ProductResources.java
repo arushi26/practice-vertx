@@ -1,5 +1,6 @@
 package com.arushi.practicevertx.resources;
 
+import com.arushi.practicevertx.database.MongoManager;
 import com.arushi.practicevertx.entity.Product;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpHeaders;
@@ -11,14 +12,16 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 
-import java.util.ArrayList;
-import java.util.List;
 
 public class ProductResources {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ProductResources.class);
+    private Vertx vertx = null;
+    private final String serviceName = MongoManager.serviceName();
 
     public Router getAPISubRouter(Vertx vertx){
+        this.vertx = vertx;
+
         Router apiSubRouter = Router.router(vertx);
 
         // API routing
@@ -60,67 +63,148 @@ public class ProductResources {
 
     // Get All Products as array of products
     public void getAllProducts(RoutingContext routingContext) {
-        JsonObject responseJson = new JsonObject();
 
-        Product firstItem = new Product("2322333", "123", "Item 1");
-        Product secondItem = new Product("34241123", "432", "Item 2");
-        List<Product> products = new ArrayList<>();
-        products.add(firstItem);
-        products.add(secondItem);
+        JsonObject cmdJson = new JsonObject();
+        cmdJson.put("cmd","findAll");
 
-        responseJson.put("products", products);
+        vertx.eventBus().request(serviceName,
+                                        cmdJson.toString(),
+                                        asyncResult -> {
+                                            if(asyncResult.succeeded()) {
+                                                JsonObject reply = new JsonObject(asyncResult.result().body().toString());
+                                                System.out.println(serviceName + " :: Got reply --> " + reply.toString());
 
-        routingContext.response()
-                .setStatusCode(200)
-                .putHeader("content-type","application/json")
-                .end(Json.encodePrettily(responseJson));
+                                                int statusCode = (reply.containsKey("products")) ? 200 : 400;
+
+                                                routingContext.response()
+                                                        .setStatusCode(statusCode)
+                                                        .putHeader("content-type","application/json")
+                                                        .end(Json.encodePrettily(reply));
+
+                                            }
+
+                                        }
+        );
+
     }
 
     // Get one product that matches input id and return as a single Json object
     public void getProductById(RoutingContext routingContext) {
         final String productId = routingContext.request().getParam("id");
-        String number = "234";
-        Product firstItem = new Product(productId, number, "Item " + number);
 
-        routingContext.response()
-                .setStatusCode(200)
-                .putHeader("content-type","application/json")
-                .end(Json.encodePrettily(firstItem));
+        JsonObject cmdJson = new JsonObject();
+        cmdJson.put("cmd","findById");
+        cmdJson.put("id",productId);
+
+        vertx.eventBus().request(serviceName,
+                                    cmdJson.toString(),
+                                    messageAsyncResult -> {
+                                        if(messageAsyncResult.succeeded()) {
+                                            JsonObject reply = new JsonObject(messageAsyncResult.result().body().toString());
+                                            System.out.println(serviceName + " :: Got reply --> " + reply.toString());
+
+                                            int statusCode = (reply.containsKey("error")) ? 400 : 200;
+
+                                            routingContext.response()
+                                                    .setStatusCode(statusCode)
+                                                    .putHeader("content-type","application/json")
+                                                    .end(Json.encodePrettily(reply));
+
+                                            }
+
+                                        }
+                );
     }
 
     // Insert a product item passed in from the http post body
     // Return what was added with the unique id from the insert
     public void addProduct(RoutingContext routingContext) {
+
+        JsonObject cmdJson = new JsonObject();
+        cmdJson.put("cmd","add");
+
         JsonObject jsonBody = routingContext.body().asJsonObject();
         String number = jsonBody.getString("number");
         String description = jsonBody.getString("description");
 
+        cmdJson.put("product", jsonBody);
+
         Product newItem = new Product("", number, description);
 
-        // Add into database & get unique id
-        newItem.setId("234978");
+        vertx.eventBus().request(serviceName,
+                                    cmdJson.toString(),
+                                    asyncResult -> {
+                                        if(asyncResult.succeeded()) {
+                                            JsonObject reply = new JsonObject(asyncResult.result().body().toString());
+                                            System.out.println(serviceName + " :: Got reply --> " + reply.toString());
 
-        routingContext.response()
-                .setStatusCode(201)
-                .putHeader("content-type","application/json")
-                .end(Json.encodePrettily(newItem));
+                                            int statusCode = 400;
+
+                                            if(reply.containsKey("id")) {
+                                                // Get unique id
+                                                String newItemId = reply.getString("id");
+                                                newItem.setId(newItemId);
+                                                statusCode = (!newItemId.isEmpty()) ? 201 : 400;
+
+                                                routingContext.response()
+                                                        .setStatusCode(statusCode)
+                                                        .putHeader("content-type","application/json")
+                                                        .end(Json.encodePrettily(newItem));
+                                            }
+
+                                            // Any other error
+                                            routingContext.response()
+                                                    .setStatusCode(statusCode)
+                                                    .putHeader("content-type","application/json")
+                                                    .end(Json.encodePrettily(reply));
+
+
+                                        }
+
+                                    }
+                );
     }
 
     // Update the item based on the url product id
     // Return updated product info
     public void updateProductById(RoutingContext routingContext) {
+
         final String productId = routingContext.request().getParam("id");
 
         JsonObject jsonBody = routingContext.body().asJsonObject();
-        String number = jsonBody.getString("number");
-        String description = jsonBody.getString("description");
 
-        Product updatedItem = new Product(productId, number, description);
 
-        routingContext.response()
-                .setStatusCode(200)
-                .putHeader("content-type","application/json")
-                .end(Json.encodePrettily(updatedItem));
+        JsonObject cmdJson = new JsonObject();
+        cmdJson.put("cmd","update");
+        cmdJson.put("id", productId);
+        cmdJson.put("product", jsonBody);
+
+
+        vertx.eventBus().request(serviceName,
+                                    cmdJson.toString(),
+                                    asyncResult -> {
+                                        if(asyncResult.succeeded()) {
+                                            JsonObject reply = new JsonObject(asyncResult.result().body().toString());
+                                            System.out.println(serviceName + " :: Got reply --> " + reply.toString());
+                                            JsonObject apiResponse = new JsonObject();
+
+                                            int statusCode = 400;
+
+                                            if(reply.containsKey("updated") && reply.getBoolean("updated")) {
+                                                statusCode = 200;
+                                                apiResponse.put("updated", true);
+                                            } else {
+                                                apiResponse.put("updated", false);
+                                            }
+
+                                            routingContext.response()
+                                                    .setStatusCode(statusCode)
+                                                    .putHeader("content-type","application/json")
+                                                    .end(Json.encodePrettily(apiResponse));
+
+                                        }
+                                    }
+                );
 
     }
 
@@ -128,10 +212,22 @@ public class ProductResources {
     public void deleteProductById(RoutingContext routingContext) {
         final String productId = routingContext.request().getParam("id");
 
-        routingContext.response()
-                .setStatusCode(200)
-                .putHeader("content-type","application/json")
-                .end();
+        JsonObject cmdJson = new JsonObject();
+        cmdJson.put("cmd","delete");
+        cmdJson.put("id", productId);
+
+        vertx.eventBus().request(serviceName,
+                                    cmdJson.toString(),
+                                    asyncResult -> {
+                                        if(asyncResult.succeeded()) {
+                                            routingContext.response()
+                                                    .setStatusCode(200)
+                                                    .putHeader("content-type","application/json")
+                                                    .end();
+                                        }
+                                    }
+
+                );
     }
 
 }

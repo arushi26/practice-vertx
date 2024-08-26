@@ -5,7 +5,9 @@ import io.vertx.config.ConfigRetriever;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Vertx;
+import io.vertx.core.VertxOptions;
 import io.vertx.core.http.Cookie;
+import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.impl.logging.Logger;
 import io.vertx.core.impl.logging.LoggerFactory;
 import io.vertx.core.json.JsonObject;
@@ -20,24 +22,37 @@ public class APIVerticle extends AbstractVerticle {
     private static final Logger LOGGER = LoggerFactory.getLogger(APIVerticle.class);
     public static void main(String[] args) {
 
-        Vertx vertx = Vertx.vertx();
-
-        // Use config/config.json from resources/classpath
-        ConfigRetriever configRetriever = ConfigRetriever.create(vertx);
-        configRetriever.getConfig( config -> {
-            if(config.succeeded()) {
-                JsonObject configJson = config.result();
-//                System.out.println(configJson.encodePrettily());
-
-                DeploymentOptions options = new DeploymentOptions().setConfig(configJson);
-                vertx.deployVerticle(new APIVerticle(), options);
-            }
-                }
-
-        );
-        System.out.println("Config is read");
+        deployClusteredVerticle();
     }
 
+
+    private static void deployClusteredVerticle() {
+        // Cluster
+        VertxOptions vertxOptions = new VertxOptions();
+
+        Vertx.clusteredVertx(vertxOptions, results -> {
+            if(results.succeeded()) {
+
+                Vertx vertx = results.result();
+
+                // Use config/config.json from resources/classpath
+                ConfigRetriever configRetriever = ConfigRetriever.create(vertx);
+                configRetriever.getConfig( config -> {
+                            if(config.succeeded()) {
+                                JsonObject configJson = config.result();
+//                System.out.println(configJson.encodePrettily());
+
+                                DeploymentOptions options = new DeploymentOptions().setConfig(configJson);
+                                vertx.deployVerticle(new APIVerticle(), options);
+                            }
+                        }
+
+                );
+                System.out.println("Config is read");
+            }
+        });
+
+    }
 
     @Override
     public void start() throws Exception {
@@ -93,7 +108,7 @@ public class APIVerticle extends AbstractVerticle {
                         });
                 //.handler(StaticHandler.create().setCachingEnabled(false));
 
-        vertx.createHttpServer()
+        vertx.createHttpServer(new HttpServerOptions().setCompressionSupported(true))
                 .requestHandler(router)
                 .listen(config().getInteger("http.port"),
                             httpServerAsyncResult -> {

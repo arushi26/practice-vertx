@@ -1,9 +1,11 @@
 {
   "http.port": 8081,
-  "db.http.port": 8080,
-  "db.connection_string":"mongodb://url",
-  "db.username":"user",
-  "db.password":"",
-  "db.authSource":"",
-  "db.useObjectId":true
+  "mongodb.http.port": 8080,
+  "mongodb.host":"localhost",
+  "mongodb.port":27017,
+  "mongodb.databasename":"",
+  "mongodb.username":"user",
+  "mongodb.password":"",
+  "mongodb.authSource":"",
+  "mongodb.useObjectId":true
 }
